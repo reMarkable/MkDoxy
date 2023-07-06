@@ -42,6 +42,8 @@ def contains(a, pos, b):
 
 def split_safe(s: str, delim: str) -> [str]:
 	tokens = []
+	if not s:
+		return tokens
 	i = 0
 	last = 0
 	inside = 0

@@ -471,6 +471,9 @@ class GeneratorBase:
 
 		# Sort items into the dictionary
 		for found in found_nodes:
+			# Skip nameless nodes (anonymous namespaces, ...)
+			if not found.name:
+				continue
 			dictionary[found.name_tokens[-1][0].lower()].append(found)
 
 		# Delete unused letters

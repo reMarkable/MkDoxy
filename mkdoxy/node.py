@@ -39,6 +39,8 @@ class Node:
 			self._refid = self._xml.get('id')
 			self._language = self._xml.get('language')
 			self._name = self._xml.find('compoundname').text if self._xml.find('compoundname').text is not None else self._refid
+			if not self._name:
+				log.info(f"No name for {self}")
 			self._cache.add(self._refid, self)
 			self._static = False
 
@@ -47,7 +49,7 @@ class Node:
 			self._check_for_children()
 
 			title = self._xml.find('title')
-			self._title = title.text if title is not None else self._name
+			self._title = title.text if title is not None and title.text else self._name
 		else:
 			self._xml = xml
 			self._kind = Kind.from_str(self._xml.get('kind'))
@@ -60,6 +62,7 @@ class Node:
 			self._check_attrs()
 			self._title = self._name
 
+		assert self._name != None
 		self._details = Property.Details(self._xml, parser, self._kind)
 		self._brief = Property.Brief(self._xml, parser, self._kind)
 		self._includes = Property.Includes(self._xml, parser, self._kind)
@@ -72,6 +75,9 @@ class Node:
 		self._initializer = Property.Initializer(self._xml, parser, self._kind)
 		self._definition = Property.Definition(self._xml, parser, self._kind)
 		self._programlisting = Property.Programlisting(self._xml, parser, self._kind)
+
+	def __repr__(self):
+		return "Node: " + self.name + " refid: " + self._refid
 
 	def setLinkPrefix(self, linkPrefix: str):
 		self.linkPrefix = linkPrefix
@@ -247,7 +253,8 @@ class Node:
 		self._const = const == 'yes'
 
 		name = self._xml.find('name')
-		self._name = name.text if name is not None else ''
+		self._name = name.text if name is not None and name.text else ''
+
 		virt = self._xml.get('virt')
 		if virt:
 			self._virtual = virt in ['virtual', 'pure-virtual']
@@ -499,6 +506,11 @@ class Node:
 	def name_tokens(self) -> [str]:
 		if self.is_dir or self.is_file:
 			return self._name.split('/')
+		if self.is_namespace and not self._name:
+			return ['anonymous namespace']
+		if not self._name:
+			log.warning(f"{self}: {self.definition} has no _name property")
+			return ['']
 		return split_safe(self._name, '::')
 
 	@property
@@ -810,7 +822,12 @@ class Node:
 	@property
 	def reimplements(self) -> 'Node':
 		reimp = self._xml.find('reimplements')
-		return self._cache.get(reimp.get('refid')) if reimp is not None else None
+		try:
+			return self._cache.get(reimp.get('refid')) if reimp is not None else None
+		except IndexError as e:
+			log.warning(f"{self} reimplements {reimp.text} but it was not found in the cache:\n{str(e)}")
+			return None
+
 
 	@property
 	def print_node_recursive(self) -> str:
